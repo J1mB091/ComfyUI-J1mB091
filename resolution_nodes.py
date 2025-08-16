@@ -1,4 +1,145 @@
-from typing import Any, Optional, Tuple
+import math
+from typing import Any, Tuple, Optional
+
+
+# Predefined known ratios with human-friendly labels
+KNOWN_RATIOS = {
+    "1:1": "Perfect Square",
+    "2:3": "Classic Portrait",
+    "3:4": "Golden Ratio",
+    "3:5": "Elegant Vertical",
+    "4:5": "Artistic Frame",
+    "5:7": "Balanced Portrait",
+    "5:8": "Tall Portrait",
+    "7:9": "Modern Portrait",
+    "9:16": "Slim Vertical",
+    "9:19": "Tall Slim",
+    "9:21": "Ultra Tall",
+    "9:32": "Skyline",
+    "3:2": "Golden Landscape",
+    "4:3": "Classic Landscape",
+    "5:3": "Wide Horizon",
+    "5:4": "Balanced Frame",
+    "7:5": "Elegant Landscape",
+    "8:5": "Cinematic View",
+    "16:9": "Panorama",
+    "19:9": "Cinematic Ultrawide",
+    "21:9": "Epic Ultrawide",
+    "32:9": "Extreme Ultrawide"
+}
+
+
+def extract_image_dimensions(image: Any) -> Tuple[int, int]:
+    """
+    Shared utility function to extract width and height from various image formats.
+    Returns (height, width) tuple.
+    """
+    shape = getattr(image, "shape", None)
+    if shape is None:
+        raise ValueError("Unsupported image type: missing shape attribute")
+
+    if len(shape) == 4:  # [batch, height, width, channels]
+        height, width = shape[1], shape[2]
+    elif len(shape) == 3:  # [height, width, channels] or [batch, height, width]
+        height, width = shape[0], shape[1]
+    elif len(shape) == 2:  # [height, width]
+        height, width = shape[0], shape[1]
+    else:
+        raise ValueError(f"Unexpected image shape {shape}")
+
+    if height <= 0 or width <= 0:
+        raise ValueError(f"Invalid image dimensions: {width}x{height}")
+
+    return int(height), int(width)
+
+
+class AspectRatioFromImage:
+    """
+    Extract aspect ratio from an image in 'width:height' format.
+    """
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE", {"tooltip": "Input image"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("aspect_ratio",)
+    FUNCTION = "get_aspect_ratio"
+    CATEGORY = "J1mB091/Resolution"
+
+    def get_aspect_ratio(self, image: Any) -> tuple[str]:
+        height, width = extract_image_dimensions(image)
+        gcd = math.gcd(int(width), int(height)) or 1
+        w = int(width) // gcd
+        h = int(height) // gcd
+        return (f"{w}:{h}",)
+
+
+class ImageDimensions:
+    """
+    Extract width and height dimensions from an image.
+    """
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "image": ("IMAGE", {"tooltip": "Input image"}),
+            }
+        }
+
+    RETURN_TYPES = ("INT", "INT")
+    RETURN_NAMES = ("width", "height")
+    FUNCTION = "dimensions"
+    CATEGORY = "J1mB091/Resolution"
+
+    def dimensions(self, image: Any) -> Tuple[int, int]:
+        height, width = extract_image_dimensions(image)
+        return int(width), int(height)
+
+
+class NamedAspectRatioMatcher:
+    """
+    Find the closest named aspect ratio from a predefined list of common ratios.
+    """
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "input_ratio": ("STRING", {"default": "2.39:1"}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("closest_named_ratio",)
+    FUNCTION = "match_ratio"
+    CATEGORY = "J1mB091/Resolution"
+
+    def match_ratio(self, input_ratio: str) -> tuple[str]:
+        if ':' not in input_ratio:
+            raise ValueError("Invalid input. Format should be 'width:height'")
+
+        width, height = map(float, input_ratio.split(':'))
+        if height == 0:
+            raise ValueError("Height cannot be zero")
+
+        target = width / height
+
+        closest = None
+        smallest_diff = float('inf')
+
+        for ratio_str, label in KNOWN_RATIOS.items():
+            w, h = map(float, ratio_str.split(':'))
+            current_ratio = w / h
+            diff = abs(current_ratio - target)
+
+            if diff < smallest_diff:
+                smallest_diff = diff
+                closest = f"{ratio_str} ({label})"
+
+        return (closest,)
 
 
 class WanResolutionSelector:
@@ -51,7 +192,7 @@ class WanResolutionSelector:
     RETURN_TYPES = ("INT", "INT")
     RETURN_NAMES = ("width", "height")
     FUNCTION = "select_resolution"
-    CATEGORY = "J1mB091"
+    CATEGORY = "J1mB091/Resolution"
 
     def select_resolution(
         self,
@@ -60,7 +201,7 @@ class WanResolutionSelector:
         aspect_ratio_override: str,
         manual_width: int,
         manual_height: int,
-        image: Optional[Any] = None,
+        image: Any = None,
     ) -> Tuple[int, int]:
         # Manual mode: return provided dimensions; aspect ratio override is ignored here
         if mode == "manual":
@@ -78,7 +219,7 @@ class WanResolutionSelector:
         if mode == "auto":
             # If an image is provided, behave like previous image mode
             if image is not None:
-                image_height, image_width = self._extract_image_dimensions(image)
+                image_height, image_width = extract_image_dimensions(image)
                 # Choose target aspect ratio and possible forced orientation based on override
                 ratio_key, forced_orientation = self._resolve_ratio_key(aspect_ratio_override, image_width, image_height)
 
@@ -112,27 +253,6 @@ class WanResolutionSelector:
 
         # Unknown mode
         raise ValueError(f"Unsupported mode: {mode}")
-
-    def _extract_image_dimensions(self, image: Any) -> Tuple[int, int]:
-        # Extract (height, width) from common ComfyUI tensor shapes.
-        # Typical shape: [batch, height, width, channels]; can be [height, width, channels] or [height, width].
-        shape = getattr(image, "shape", None)
-        if shape is None:
-            raise ValueError("Unsupported image type: missing shape attribute")
-
-        if len(shape) == 4:  # [batch, height, width, channels]
-            height, width = shape[1], shape[2]
-        elif len(shape) == 3:  # [height, width, channels] or [batch, height, width]
-            height, width = shape[0], shape[1]
-        elif len(shape) == 2:  # [height, width]
-            height, width = shape[0], shape[1]
-        else:
-            raise ValueError(f"Unexpected image shape {shape}")
-
-        if height <= 0 or width <= 0:
-            raise ValueError(f"Invalid image dimensions: {width}x{height}")
-
-        return int(height), int(width)
 
     def _resolve_ratio_key(self, override_key: str, width: int, height: int) -> Tuple[str, Optional[str]]:
         # Respect explicit override when provided
