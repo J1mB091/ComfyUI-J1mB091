@@ -151,12 +151,12 @@ class WanResolutionSelector:
     Modes:
     - auto: If an image is provided, choose based on the image's aspect ratio (or override).
             If no image is provided, require a non-off aspect_ratio_override and use quality + override.
-    - manual: Return the provided width/height (must be divisible by 32)
+    - manual: Return the provided width/height (must be divisible by 16)
     """
 
     # Configuration constants
-    DIMENSION_ALIGNMENT = 32
-    MIN_DIMENSION = 32
+    DIMENSION_ALIGNMENT = 16
+    MIN_DIMENSION = 16
     MAX_DIMENSION = 8192
     ASPECT_RATIO_TOLERANCE = 0.05  # 5% tolerance for near-square detection
 
