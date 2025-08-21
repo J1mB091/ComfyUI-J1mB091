@@ -14,19 +14,19 @@ A collection of useful custom nodes for ComfyUI, focusing on resolution utilitie
 
 All resolution nodes are located in the **J1mB091/Resolution** category.
 
-#### **Aspect Ratio From Image 📐**
+#### **J1mB091's Aspect Ratio From Image 📐**
 Extracts the aspect ratio from an input image and returns it in `width:height` format.
 
 - **Input**: `IMAGE` - Any image tensor
 - **Output**: `STRING` - Aspect ratio (e.g., "16:9", "4:3")
 
-#### **Image Dimensions 📏**
+#### **J1mB091's Image Dimensions 📏**
 Extracts the exact width and height dimensions from an input image.
 
-- **Input**: `IMAGE` - Any image tensor  
+- **Input**: `IMAGE` - Any image tensor
 - **Output**: `INT, INT` - Width and height values
 
-#### **Match Named Aspect Ratio 🎯**
+#### **J1mB091's Match Named Aspect Ratio 🎯**
 Finds the closest named aspect ratio from a predefined list of common ratios.
 
 - **Input**: `STRING` - Aspect ratio in "width:height" format
@@ -37,22 +37,31 @@ Finds the closest named aspect ratio from a predefined list of common ratios.
 - Portrait: `2:3`, `3:4`, `4:5`, `5:7`, `9:16`, etc.
 - Landscape: `3:2`, `4:3`, `16:9`, `21:9`, etc.
 
-#### **WAN Resolution Selector 🖥️**
-Intelligent resolution selector optimized for WAN models with smart aspect ratio detection.
+#### **J1mB091's Resolution Selector 🖥️**
+Universal resolution selector supporting both WAN and FLUX models with smart aspect ratio detection and conditional widget visibility.
+
+**Models:**
+- **WAN**: Uses quality presets with aspect ratio override (legacy support)
+- **FLUX**: Uses specific resolution presets for optimal FLUX performance
 
 **Modes:**
-- **Auto**: Automatically selects resolution based on input image or aspect ratio override
-- **Manual**: Direct width/height input (must be divisible by 32)
+- **Auto**: Automatically selects resolution based on model type, input image, or aspect ratio settings
+- **Manual**: Direct width/height input (must be divisible by 16)
 
-**Features:**
+**WAN Features:**
 - Quality presets: 480p, 720p
 - Aspect ratio overrides: 1:1, 4:3, 16:9, 3:4, 9:16
 - Automatic portrait/landscape detection
-- WAN-optimized resolutions (32-pixel aligned)
+- WAN-optimized resolutions (16-pixel aligned)
+
+**FLUX Features:**
+- Specific resolution presets optimized for FLUX
+- 17 predefined aspect ratios from 9:21 to 21:9
+- Direct resolution selection for optimal performance
 
 ### XY Plotting 📊
 
-#### **KSampler XY Plot 📊**
+#### **J1mB091's KSampler XY Plot 📊**
 Advanced KSampler with built-in XY plotting capabilities for parameter testing and comparison.
 
 **Features:**
@@ -74,24 +83,25 @@ Advanced KSampler with built-in XY plotting capabilities for parameter testing a
 ### Conditional Widget Visibility
 The included JavaScript extension provides dynamic widget visibility based on user selections:
 
-- **WAN Resolution Selector**: Shows/hides relevant widgets based on mode selection
+- **J1mB091's Resolution Selector**: Shows/hides relevant widgets based on mode and model selection
+- **Smart Logic**: Automatically shows WAN-specific options (quality, aspect_ratio_override) or FLUX-specific options (aspect_ratio presets)
 - **Extensible**: Easy to add support for other nodes with conditional logic
 
 ## 🚀 Usage Examples
 
 ### Basic Resolution Workflow
 ```
-Image → Aspect Ratio From Image → Match Named Aspect Ratio
+Image → J1mB091's Aspect Ratio From Image → J1mB091's Match Named Aspect Ratio
 ```
 
-### WAN Model Optimization
+### Universal Resolution Selection (WAN & FLUX)
 ```
-Image → WAN Resolution Selector (auto mode) → KSampler
+Image → J1mB091's Resolution Selector (auto mode) → KSampler
 ```
 
-### Parameter Testing
+### Parameter Testing with XY Plots
 ```
-KSampler XY Plot → Advanced XY Plot Config → Generate Comparison Grid
+J1mB091's KSampler XY Plot → Advanced XY Plot Config → Generate Comparison Grid
 ```
 
 ## 🔧 Technical Details

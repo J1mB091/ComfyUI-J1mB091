@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from typing import List, Any
+from .resolution_nodes import tensor_to_pil_image, pil_image_to_tensor
 
 
 class KSamplerXYPlot:
@@ -10,7 +11,25 @@ class KSamplerXYPlot:
     KSampler with built-in XY plotting capabilities for parameter testing.
     Supports plotting multiple parameters across X and Y axes to create comparison grids.
     """
-    
+
+    # Default font settings
+    DEFAULT_FONT_SIZE = 30
+    MIN_FONT_SIZE = 8
+    MAX_FONT_SIZE = 100
+    DEFAULT_GRID_SPACING = 0
+
+    # Font color options
+    FONT_COLOR_WHITE = "white"
+    FONT_COLOR_BLACK = "black"
+
+    # Font file names to try
+    FONT_FILES = ["calibri.ttf", "arial.ttf"]
+
+    # Border settings
+    BORDER_WIDTH = 2
+
+    # Plot parameter names
+    COMMON_PARAMETERS = ['steps', 'cfg', 'denoise', 'seed', 'sampler_name', 'scheduler']
     @classmethod
     def INPUT_TYPES(s):
         import comfy.samplers
@@ -28,8 +47,8 @@ class KSamplerXYPlot:
                 "vae": ("VAE",),
                 "denoise": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.01}),
                 "adv_xyPlot": ("ADV_XYPLOT",),
-                "plot_font_size": ("INT", {"default": 30, "min": 8, "max": 100, "step": 1}),
-                "plot_font_color": (["white", "black"], {"default": "white"}),
+                "plot_font_size": ("INT", {"default": KSamplerXYPlot.DEFAULT_FONT_SIZE, "min": KSamplerXYPlot.MIN_FONT_SIZE, "max": KSamplerXYPlot.MAX_FONT_SIZE, "step": 1}),
+                "plot_font_color": ([KSamplerXYPlot.FONT_COLOR_WHITE, KSamplerXYPlot.FONT_COLOR_BLACK], {"default": KSamplerXYPlot.FONT_COLOR_WHITE}),
                 "plot_font_border": ("BOOLEAN", {"default": True}),
             },
             "hidden": {
@@ -81,23 +100,8 @@ class KSamplerXYPlot:
         # Decode image if VAE is provided
         image = None
         if vae is not None:
-            image = vae.decode(samples)
-            # Convert tensor to PIL Image if needed
-            if hasattr(image, 'cpu'):
-                # Convert tensor to PIL Image
-                if isinstance(image, torch.Tensor):
-                    image = image.cpu().numpy()
-                if len(image.shape) == 4:  # [batch, height, width, channels]
-                    image = image[0]  # Take first image
-                elif len(image.shape) == 3:  # [height, width, channels]
-                    pass
-                else:
-                    image = None
-                
-                if image is not None:
-                    # Convert to uint8 and create PIL Image
-                    image = (image * 255).astype(np.uint8)
-                    image = Image.fromarray(image)
+            decoded_tensor = vae.decode(samples)
+            image = tensor_to_pil_image(decoded_tensor)
         
         return (out, image)
     
@@ -113,24 +117,24 @@ class KSamplerXYPlot:
         # Convert ttN plot format to our parameter format
         x_values, x_axis_param = self._extract_plot_values(x_plot_data, "X")
         y_values, y_axis_param = self._extract_plot_values(y_plot_data, "Y") if y_plot_data else ([None], None)
-        
+
         # Log the values being processed
         print(f"KSamplerXYPlot: X axis ({x_axis_param}): {x_values}")
         print(f"KSamplerXYPlot: Y axis ({y_axis_param}): {y_values}")
-        
+
         if not x_values or x_values == [None]:
             # Fallback to single sample if no valid values
             result = self._single_sample(model, seed, steps, cfg, sampler_name, scheduler, positive, negative, latent_image, denoise, vae)
             return (result[1],)
-        
+
         # Create parameter grid
         grid_images = []
         grid_latents = []
-        
+
         for y_idx, y_val in enumerate(y_values):
             row_images = []
             row_latents = []
-            
+
             for x_idx, x_val in enumerate(x_values):
                 # Create parameter dict for this grid position
                 params = {
@@ -175,7 +179,11 @@ class KSamplerXYPlot:
         """
         if not plot_data:
             return [None], None
-            
+
+        if not isinstance(plot_data, dict):
+            print(f"Warning: Invalid plot_data format for {axis_name} axis, expected dict, got {type(plot_data)}")
+            return [None], None
+
         try:
             # ttN plot data is a dictionary where keys are plot points
             # and values contain node manipulation instructions
@@ -198,7 +206,7 @@ class KSamplerXYPlot:
                             continue
                         if isinstance(node_data, dict):
                             for param, value in node_data.items():
-                                if param in ['steps', 'cfg', 'denoise', 'seed', 'sampler_name', 'scheduler']:
+                                if param in self.COMMON_PARAMETERS:
                                     param_name = param
                                     break
                             if param_name != "unknown":
@@ -255,11 +263,16 @@ class KSamplerXYPlot:
         except:
             return False
     
-    def _create_xy_plot_grid(self, grid_images: List[List[Any]], x_values: List[Any], y_values: List[Any], 
+    def _create_xy_plot_grid(self, grid_images: List[List[Any]], x_values: List[Any], y_values: List[Any],
                             x_param: str, y_param: str, plot_grid_spacing: int, plot_font_size: int, plot_font_color: str, plot_font_border: bool) -> Any:
         """Create a grid image from the sampled images"""
-        
+
         if not grid_images or not grid_images[0]:
+            print("Warning: No grid images provided to create_xy_plot_grid")
+            return None
+
+        if not x_values or not y_values:
+            print("Warning: Empty x_values or y_values provided to create_xy_plot_grid")
             return None
         
         # Get dimensions from first image
@@ -289,16 +302,19 @@ class KSamplerXYPlot:
         draw = ImageDraw.Draw(grid_image)
         
         # Try to load a font for labels
-        try:
-            font = ImageFont.truetype("calibri.ttf", plot_font_size)
-        except:
+        font = None
+        for font_file in self.FONT_FILES:
             try:
-                font = ImageFont.truetype("arial.ttf", plot_font_size)
+                font = ImageFont.truetype(font_file, plot_font_size)
+                break
             except:
-                try:
-                    font = ImageFont.load_default()
-                except:
-                    font = None
+                continue
+
+        if font is None:
+            try:
+                font = ImageFont.load_default()
+            except:
+                font = None
         
         # Place images in grid
         for y_idx, y_val in enumerate(y_values):
@@ -310,20 +326,7 @@ class KSamplerXYPlot:
                         y_pos = y_idx * (img_height + plot_grid_spacing)
                         
                         # Convert tensor to PIL Image if needed
-                        if hasattr(img, 'cpu'):
-                            if isinstance(img, torch.Tensor):
-                                img = img.cpu().numpy()
-                            if len(img.shape) == 4:  # [batch, height, width, channels]
-                                img = img[0]  # Take first image
-                            elif len(img.shape) == 3:  # [height, width, channels]
-                                pass
-                            else:
-                                img = None
-                            
-                            if img is not None:
-                                # Convert to uint8 and create PIL Image
-                                img = (img * 255).astype(np.uint8)
-                                img = Image.fromarray(img)
+                        img = tensor_to_pil_image(img)
                         
                         if img is not None:
                             grid_image.paste(img, (x_pos, y_pos))
@@ -336,20 +339,19 @@ class KSamplerXYPlot:
                                     label = f"{x_param}: {x_val}"
                                 
                                 # Set font and border colors based on user choice
-                                if plot_font_color == "white":
+                                if plot_font_color == self.FONT_COLOR_WHITE:
                                     text_color = (255, 255, 255)
                                     border_color = (0, 0, 0)  # Black border for white text
                                 else:  # black
                                     text_color = (0, 0, 0)
                                     border_color = (255, 255, 255)  # White border for black text
-                                
+
                                 text_x, text_y = x_pos + 5, y_pos + 5
-                                
+
                                 # Draw border if enabled
                                 if plot_font_border:
-                                    border_width = 2
-                                    for dx in range(-border_width, border_width + 1):
-                                        for dy in range(-border_width, border_width + 1):
+                                    for dx in range(-self.BORDER_WIDTH, self.BORDER_WIDTH + 1):
+                                        for dy in range(-self.BORDER_WIDTH, self.BORDER_WIDTH + 1):
                                             if dx != 0 or dy != 0:  # Skip center position
                                                 draw.text((text_x + dx, text_y + dy), label, fill=border_color, font=font)
                                 
@@ -357,16 +359,5 @@ class KSamplerXYPlot:
                                 draw.text((text_x, text_y), label, fill=text_color, font=font)
         
         # Convert PIL Image to tensor format for ComfyUI
-        
-        # Convert PIL Image to numpy array
-        img_array = np.array(grid_image)
-        
-        # Convert to tensor format [batch, height, width, channels]
-        if len(img_array.shape) == 3:  # [height, width, channels]
-            img_tensor = torch.from_numpy(img_array).float() / 255.0
-            img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-        else:
-            img_tensor = None
-            
-        return img_tensor
+        return pil_image_to_tensor(grid_image)
 

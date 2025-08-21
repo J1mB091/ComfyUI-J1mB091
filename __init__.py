@@ -1,4 +1,4 @@
-from .resolution_nodes import AspectRatioFromImage, ImageDimensions, NamedAspectRatioMatcher, WanResolutionSelector
+from .resolution_nodes import AspectRatioFromImage, ImageDimensions, NamedAspectRatioMatcher, ResolutionSelector
 from .xy_plot_nodes import KSamplerXYPlot
 
 # Import any future nodes here
@@ -11,18 +11,18 @@ NODE_CLASS_MAPPINGS = {
     "AspectRatioFromImage": AspectRatioFromImage,
     "ImageDimensions": ImageDimensions,
     "NamedAspectRatioMatcher": NamedAspectRatioMatcher,
-    "WanResolutionSelector": WanResolutionSelector,
+    "ResolutionSelector": ResolutionSelector,
     "KSamplerXYPlot": KSamplerXYPlot,
     # Add new nodes here
     # "NewNode": NewNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "AspectRatioFromImage": "Aspect Ratio From Image 📐",
-    "ImageDimensions": "Image Dimensions 📏",
-    "NamedAspectRatioMatcher": "Match Named Aspect Ratio 🎯",
-    "WanResolutionSelector": "WAN Resolution Selector 🖥️",
-    "KSamplerXYPlot": "KSampler XY Plot 📊",
+    "AspectRatioFromImage": "J1mB091's Aspect Ratio From Image 📐",
+    "ImageDimensions": "J1mB091's Image Dimensions 📏",
+    "NamedAspectRatioMatcher": "J1mB091's Match Named Aspect Ratio 🎯",
+    "ResolutionSelector": "J1mB091's Resolution Selector 🖥️",
+    "KSamplerXYPlot": "J1mB091's KSampler XY Plot 📊",
     # Add new node display names here
-    # "NewNode": "My New Node 🎯",
+    # "NewNode": "J1mB091's My New Node 🎯",
 }
