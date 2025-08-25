@@ -1,6 +1,6 @@
 # ComfyUI-J1mB091 Custom Nodes 🎨
 
-A collection of useful custom nodes for ComfyUI, focusing on resolution utilities and advanced XY plotting capabilities.
+A collection of useful custom nodes for ComfyUI, focusing on resolution utilities, advanced XY plotting capabilities, and image batch manipulation.
 
 ## 📦 Installation
 
@@ -59,6 +59,45 @@ Universal resolution selector supporting both WAN and FLUX models with smart asp
 - 17 predefined aspect ratios from 9:21 to 21:9
 - Direct resolution selection for optimal performance
 
+### Video Sequence Manipulation 🎬
+
+All video and sequence manipulation nodes are located in the **J1mB091/Video** category.
+
+#### **J1mB091's Extract Last Frame 📸**
+Extracts the last frame from an image batch, useful for preserving transition frames.
+
+**Input:**
+- **`images`** (required) - Input image batch to extract last frame from
+
+**Output:**
+- **`last_frame`** - The final image from the input batch
+
+**Use Case:**
+- Extract transition frames before combining video sequences
+- Preserve the last frame of a prefix video for later use
+
+#### **J1mB091's Image Batch Combiner 🔗**
+Combines two image batches for WAN video merging with automatic duplicate prevention.
+
+**Features:**
+- Combines first_images before last_images in the final sequence
+- Automatically excludes the last image from first_images to prevent duplication
+- Optional toggle to ignore first_images completely
+- Perfect for combining prefix frames with main video sequences
+
+**Inputs:**
+- **`first_images`** (required) - Prefix images placed before last_images
+- **`last_images`** (required) - Main images in sequence
+- **`ignore_first_images`** (required) - Boolean toggle to ignore first_images
+
+**Output:**
+- **`combined_images`** - Combined image batch
+
+**Behavior:**
+- When `ignore_first_images = False`: Combines (first_images[:-1] + last_images)
+- When `ignore_first_images = True`: Returns only last_images
+- Useful for dynamic video workflows where you need to include/exclude intro frames
+
 ### XY Plotting 📊
 
 #### **J1mB091's KSampler XY Plot 📊**
@@ -104,6 +143,16 @@ Image → J1mB091's Resolution Selector (auto mode) → KSampler
 J1mB091's KSampler XY Plot → Advanced XY Plot Config → Generate Comparison Grid
 ```
 
+### Extract Transition Frame
+```
+Prefix Video Frames → J1mB091's Extract Last Frame → Transition Frame
+```
+
+### Video Sequence Merging
+```
+Prefix Frames → J1mB091's Image Batch Combiner (last_images) → Main Video Frames → Combined Sequence
+```
+
 ## 🔧 Technical Details
 
 ### Dependencies
@@ -119,6 +168,7 @@ ComfyUI-J1mB091/
 ├── __init__.py                           # Node registration
 ├── resolution_nodes.py                   # Resolution utilities
 ├── xy_plot_nodes.py                     # XY plotting functionality
+├── video_nodes.py                       # Video sequence manipulation
 └── js/
     └── conditional_widget_visibility.js  # Frontend enhancements
 ```

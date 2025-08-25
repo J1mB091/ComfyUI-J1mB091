@@ -1,0 +1,11 @@
+# ComfyUI-J1mB091 Custom Nodes Requirements
+#
+# This node pack uses only standard ComfyUI dependencies and built-in Python modules.
+# No additional packages need to be installed.
+#
+# Standard dependencies (included with ComfyUI):
+# - torch          # Tensor operations
+# - numpy          # Array operations
+# - Pillow         # Image processing
+# - typing         # Type hints (built-in Python module)
+# - math           # Mathematical functions (built-in Python module)
