@@ -177,6 +177,16 @@ ComfyUI-J1mB091/
 
 Feel free to submit issues, feature requests, or pull requests to improve this node pack!
 
+## 📄 License
+
+This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+The GPL-3.0 license ensures that:
+- ✅ You can freely use, modify, and distribute this software
+- ✅ Any modifications you make must also be licensed under GPL-3.0
+- ✅ You must include the original copyright and license notices
+- ✅ You must provide access to the source code when distributing
+
 ---
 
 **Created by J1mB091** - Making ComfyUI workflows more efficient! 🎨✨

@@ -100,8 +100,13 @@ class KSamplerXYPlot:
         # Decode image if VAE is provided
         image = None
         if vae is not None:
-            decoded_tensor = vae.decode(samples)
-            image = tensor_to_pil_image(decoded_tensor)
+            decoded_result = vae.decode(samples)
+            # Check if decode result is already a PIL Image
+            if isinstance(decoded_result, Image.Image):
+                image = decoded_result
+            else:
+                # It's a tensor, convert to PIL Image
+                image = tensor_to_pil_image(decoded_result)
         
         return (out, image)
     
@@ -326,7 +331,8 @@ class KSamplerXYPlot:
                         y_pos = y_idx * (img_height + plot_grid_spacing)
                         
                         # Convert tensor to PIL Image if needed
-                        img = tensor_to_pil_image(img)
+                        if not isinstance(img, Image.Image):
+                            img = tensor_to_pil_image(img)
                         
                         if img is not None:
                             grid_image.paste(img, (x_pos, y_pos))
