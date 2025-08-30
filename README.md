@@ -1,6 +1,6 @@
 # ComfyUI-J1mB091 Custom Nodes 🎨
 
-A collection of useful custom nodes for ComfyUI, focusing on resolution utilities, advanced XY plotting capabilities, and image batch manipulation.
+A collection of useful custom nodes for ComfyUI, focusing on resolution utilities and image batch manipulation.
 
 ## 📦 Installation
 
@@ -98,24 +98,7 @@ Combines two image batches for WAN video merging with automatic duplicate preven
 - When `ignore_first_images = True`: Returns only last_images
 - Useful for dynamic video workflows where you need to include/exclude intro frames
 
-### XY Plotting 📊
 
-#### **J1mB091's KSampler XY Plot 📊**
-Advanced KSampler with built-in XY plotting capabilities for parameter testing and comparison.
-
-**Features:**
-- Create comparison grids across multiple parameters
-- Customizable font size, color, and border
-- Supports all standard KSampler parameters
-- Generates annotated plot images showing parameter values
-
-**Inputs:**
-- Standard KSampler inputs (model, seed, steps, cfg, etc.)
-- `adv_xyPlot` - Advanced XY plot configuration
-- Plot styling options (font size, color, border)
-
-**Output:**
-- `IMAGE` - Annotated comparison grid
 
 ## 🎛️ Frontend Features
 
@@ -138,10 +121,7 @@ Image → J1mB091's Aspect Ratio From Image → J1mB091's Match Named Aspect Rat
 Image → J1mB091's Resolution Selector (auto mode) → KSampler
 ```
 
-### Parameter Testing with XY Plots
-```
-J1mB091's KSampler XY Plot → Advanced XY Plot Config → Generate Comparison Grid
-```
+
 
 ### Extract Transition Frame
 ```
@@ -167,7 +147,6 @@ This node pack uses only standard ComfyUI dependencies:
 ComfyUI-J1mB091/
 ├── __init__.py                           # Node registration
 ├── resolution_nodes.py                   # Resolution utilities
-├── xy_plot_nodes.py                     # XY plotting functionality
 ├── video_nodes.py                       # Video sequence manipulation
 └── js/
     └── conditional_widget_visibility.js  # Frontend enhancements

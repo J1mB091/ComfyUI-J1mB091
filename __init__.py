@@ -1,5 +1,4 @@
 from .resolution_nodes import AspectRatioFromImage, ImageDimensions, NamedAspectRatioMatcher, ResolutionSelector
-from .xy_plot_nodes import KSamplerXYPlot
 from .video_nodes import ExtractLastFrame, ImageBatchCombiner
 
 # Import any future nodes here
@@ -13,7 +12,6 @@ NODE_CLASS_MAPPINGS = {
     "ImageDimensions": ImageDimensions,
     "NamedAspectRatioMatcher": NamedAspectRatioMatcher,
     "ResolutionSelector": ResolutionSelector,
-    "KSamplerXYPlot": KSamplerXYPlot,
     "ExtractLastFrame": ExtractLastFrame,
     "ImageBatchCombiner": ImageBatchCombiner,
     # Add new nodes here
@@ -25,7 +23,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "ImageDimensions": "J1mB091's Image Dimensions 📏",
     "NamedAspectRatioMatcher": "J1mB091's Match Named Aspect Ratio 🎯",
     "ResolutionSelector": "J1mB091's Resolution Selector 🖥️",
-    "KSamplerXYPlot": "J1mB091's KSampler XY Plot 📊",
     "ExtractLastFrame": "J1mB091's Extract Last Frame 📸",
     "ImageBatchCombiner": "J1mB091's Image Batch Combiner 🔗",
     # Add new node display names here
