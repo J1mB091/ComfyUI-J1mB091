@@ -4,7 +4,8 @@
 # No additional packages need to be installed.
 #
 # Standard dependencies (included with ComfyUI):
-# - torch          # Tensor operations
+# - torch>=2.0.0
+typing-extensions>=4.5.0          # Tensor operations
 # - numpy          # Array operations
 # - Pillow         # Image processing
 # - typing         # Type hints (built-in Python module)

@@ -1,12 +1,25 @@
+"""Resolution utility nodes for ComfyUI."""
+
 import math
-from typing import Any, Tuple, Optional
-import torch
+from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, cast, TYPE_CHECKING
+import logging
+from pathlib import Path
+
 import numpy as np
+from numpy.typing import NDArray
+import numpy.typing as npt
+import torch
+from torch import Tensor
 from PIL import Image
 
+logger = logging.getLogger(__name__)
+
+# Type variables for tensor operations
+T = TypeVar('T', Tensor, NDArray[np.float32])
+ImageType = Union[Tensor, NDArray[np.float32], Image.Image]
 
 # Predefined known ratios with human-friendly labels
-KNOWN_RATIOS = {
+KNOWN_RATIOS: Dict[str, str] = {
     "1:1": "Perfect Square",
     "2:3": "Classic Portrait",
     "3:4": "Golden Ratio",
@@ -32,97 +45,166 @@ KNOWN_RATIOS = {
 }
 
 
-def extract_image_dimensions(image: Any) -> Tuple[int, int]:
-    """
-    Shared utility function to extract width and height from various image formats.
-    Returns (height, width) tuple.
-    """
-    shape = getattr(image, "shape", None)
-    if shape is None:
-        raise ValueError("Unsupported image type: missing shape attribute")
-
-    if len(shape) == 4:  # [batch, height, width, channels]
-        height, width = shape[1], shape[2]
-    elif len(shape) == 3:  # [height, width, channels] or [batch, height, width]
-        height, width = shape[0], shape[1]
-    elif len(shape) == 2:  # [height, width]
-        height, width = shape[0], shape[1]
-    else:
-        raise ValueError(f"Unexpected image shape {shape}")
-
-    if height <= 0 or width <= 0:
-        raise ValueError(f"Invalid image dimensions: {width}x{height}")
-
-    return int(height), int(width)
-
-
-def tensor_to_pil_image(image: Any) -> Image.Image:
-    """
-    Convert various image formats (tensor, numpy array) to PIL Image.
-    Returns None if conversion fails.
-    """
-    try:
-        if image is None:
-            return None
-
-        # Handle tensor input
-        if hasattr(image, 'cpu'):
-            if isinstance(image, torch.Tensor):
-                image = image.cpu().numpy()
-
-        # Handle different shapes
-        if len(image.shape) == 4:  # [batch, height, width, channels]
-            image = image[0]  # Take first image
-        elif len(image.shape) == 3:  # [height, width, channels]
-            pass  # Already in correct format
-        else:
-            return None
-
-        # Convert to uint8 and create PIL Image
-        if image.dtype != np.uint8:
-            image = (image * 255).astype(np.uint8)
-
-        return Image.fromarray(image)
-
-    except Exception as e:
-        print(f"Error converting tensor to PIL Image: {e}")
-        return None
-
-
-def pil_image_to_tensor(image: Image.Image) -> Any:
-    """
-    Convert PIL Image to tensor format compatible with ComfyUI.
-    Returns tensor in [batch, height, width, channels] format.
-    """
-    try:
-        if image is None:
-            return None
-
-        # Convert PIL Image to numpy array
-        img_array = np.array(image)
-
-        # Convert to tensor format [batch, height, width, channels]
-        if len(img_array.shape) == 3:  # [height, width, channels]
-            img_tensor = torch.from_numpy(img_array).float() / 255.0
-            img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-            return img_tensor
-
-        return None
-
-    except Exception as e:
-        print(f"Error converting PIL Image to tensor: {e}")
-        return None
-
-
-class AspectRatioFromImage:
-    """
-    Extract aspect ratio from an image in 'width:height' format.
-    """
+class ImageProcessingBase:
+    """Base class for image processing nodes with common utility methods."""
+    
     @classmethod
-    def INPUT_TYPES(cls):
+    def extract_image_dimensions(cls, image: Any) -> Tuple[int, int]:
+        """
+        Extract width and height from various image formats.
+        Returns (height, width) tuple.
+        
+        Args:
+            image: Input image in any supported format
+            
+        Returns:
+            Tuple[int, int]: Height and width as integers (512, 512) on error
+        """
+        try:
+            if image is None:
+                logger.warning("Received None image, using default dimensions")
+                return 512, 512
+
+            # Handle PIL Image
+            if isinstance(image, Image.Image):
+                width, height = image.size
+                return int(height), int(width)
+
+            # Get shape from ndarray or tensor
+            shape = getattr(image, "shape", None)
+            if shape is None:
+                raise ValueError("Cannot get dimensions: no shape attribute")
+
+            # Extract dimensions based on shape length
+            if len(shape) == 4:  # [batch, height, width, channels]
+                height, width = int(shape[1]), int(shape[2])
+            elif len(shape) == 3:  # [height, width, channels]
+                height, width = int(shape[0]), int(shape[1])
+            elif len(shape) == 2:  # [height, width]
+                height, width = int(shape[0]), int(shape[1])
+            else:
+                raise ValueError(f"Invalid shape for image: {shape}")
+
+            # Validate dimensions
+            if height <= 0 or width <= 0:
+                raise ValueError(f"Invalid dimensions: {width}x{height}")
+
+            return height, width
+
+        except Exception as e:
+            logger.error(f"Error getting dimensions: {e}")
+            return 512, 512
+
+    @classmethod
+    def ensure_tensor(cls, image: Any) -> Optional[Tensor]:
+        """
+        Convert various image formats to tensor.
+        
+        Args:
+            image: Input in any supported format
+            
+        Returns:
+            Optional[Tensor]: Image tensor or None if conversion fails
+        """
+        try:
+            if image is None:
+                return None
+
+            # Handle PIL Image
+            if isinstance(image, Image.Image):
+                img_array = np.array(image)
+                return torch.from_numpy(img_array).float().div(255.0)
+
+            # Handle tensor
+            if isinstance(image, Tensor):
+                return image.detach().cpu()
+
+            # Handle numpy array
+            if isinstance(image, np.ndarray):
+                return torch.from_numpy(image.astype(np.float32))
+
+            raise TypeError(f"Cannot convert type {type(image)} to tensor")
+
+        except Exception as e:
+            logger.error(f"Error converting to tensor: {e}")
+            return None
+
+    @classmethod 
+    def tensor_to_pil_image(cls, image: Union[Tensor, NDArray]) -> Optional[Image.Image]:
+        """
+        Convert tensor/array to PIL Image.
+        
+        Args:
+            image: Input tensor/array
+            
+        Returns:
+            Optional[Image.Image]: PIL Image or None if conversion fails
+        """
+        try:
+            if image is None:
+                return None
+
+            # Convert tensor to numpy
+            if torch.is_tensor(image):
+                image = image.detach().cpu().numpy()
+
+            # Handle different shapes
+            if image.ndim == 4:  # [batch, height, width, channels]
+                image = image[0]  # Take first image
+            elif image.ndim == 3:  # [height, width, channels]
+                pass  # Already in correct format
+            else:
+                raise ValueError(f"Invalid shape: {image.shape}")
+
+            # Scale and convert to uint8
+            if image.dtype != np.uint8:
+                image = (image * 255).clip(0, 255).astype(np.uint8)
+
+            return Image.fromarray(image)
+
+        except Exception as e:
+            logger.error(f"Error converting to PIL: {e}")
+            return None
+
+    @staticmethod
+    def pil_image_to_tensor(image: Optional[Image.Image]) -> Any:
+        """
+        Convert PIL Image to tensor format compatible with ComfyUI.
+        
+        Args:
+            image: PIL Image to convert
+            
+        Returns:
+            Any: Tensor in [batch, height, width, channels] format or None if conversion fails
+        """
+        try:
+            if image is None:
+                return None
+
+            # Convert PIL Image to numpy array
+            img_array = np.array(image)
+
+            # Convert to tensor format [batch, height, width, channels]
+            if len(img_array.shape) == 3:  # [height, width, channels]
+                img_tensor = torch.from_numpy(img_array).float() / 255.0
+                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+                return img_tensor
+
+            return None
+
+        except Exception as e:
+            print(f"Error converting PIL Image to tensor: {e}")
+            return None
+
+
+class AspectRatioFromImage(ImageProcessingBase):
+    """Extract aspect ratio from an image in 'width:height' format."""
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict[str, dict[str, Any]]:
         return {
             "required": {
-                "image": ("IMAGE", {"tooltip": "Input image"}),
+                "image": ("IMAGE", {"tooltip": "Input image to extract aspect ratio from"}),
             }
         }
 
@@ -132,22 +214,34 @@ class AspectRatioFromImage:
     CATEGORY = "J1mB091/Resolution"
 
     def get_aspect_ratio(self, image: Any) -> tuple[str]:
-        height, width = extract_image_dimensions(image)
-        gcd = math.gcd(int(width), int(height)) or 1
-        w = int(width) // gcd
-        h = int(height) // gcd
-        return (f"{w}:{h}",)
+        """
+        Extract and normalize the aspect ratio from an image.
+        
+        Args:
+            image: Input image in any supported format
+            
+        Returns:
+            tuple[str]: Normalized aspect ratio in 'width:height' format
+        """
+        try:
+            height, width = self.extract_image_dimensions(image)
+            gcd = math.gcd(int(width), int(height)) or 1
+            w = int(width) // gcd
+            h = int(height) // gcd
+            return (f"{w}:{h}",)
+        except Exception as e:
+            print(f"Error extracting aspect ratio: {e}")
+            return ("1:1",)  # Safe default
 
 
-class ImageDimensions:
-    """
-    Extract width and height dimensions from an image.
-    """
+class ImageDimensions(ImageProcessingBase):
+    """Extract width and height dimensions from an image."""
+
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls) -> dict[str, dict[str, Any]]:
         return {
             "required": {
-                "image": ("IMAGE", {"tooltip": "Input image"}),
+                "image": ("IMAGE", {"tooltip": "Input image to extract dimensions from"}),
             }
         }
 
@@ -157,19 +251,32 @@ class ImageDimensions:
     CATEGORY = "J1mB091/Resolution"
 
     def dimensions(self, image: Any) -> Tuple[int, int]:
-        height, width = extract_image_dimensions(image)
-        return int(width), int(height)
+        """
+        Extract width and height from an image.
+        
+        Args:
+            image: Input image in any supported format
+            
+        Returns:
+            Tuple[int, int]: Width and height as integers
+        """
+        try:
+            height, width = self.extract_image_dimensions(image)
+            return int(width), int(height)
+        except Exception as e:
+            print(f"Error extracting dimensions: {e}")
+            return (512, 512)  # Safe default
 
 
-class NamedAspectRatioMatcher:
+class NamedAspectRatioMatcher(ImageProcessingBase):
     """
     Find the closest named aspect ratio from a predefined list of common ratios.
     """
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls) -> Dict[str, Dict[str, Any]]:
         return {
             "required": {
-                "input_ratio": ("STRING", {"default": "2.39:1"}),
+                "input_ratio": ("STRING", {"default": "16:9", "tooltip": "Input ratio in 'width:height' format"})
             }
         }
 
@@ -178,29 +285,58 @@ class NamedAspectRatioMatcher:
     FUNCTION = "match_ratio"
     CATEGORY = "J1mB091/Resolution"
 
-    def match_ratio(self, input_ratio: str) -> tuple[str]:
-        if ':' not in input_ratio:
-            raise ValueError("Invalid input. Format should be 'width:height'")
+    def match_ratio(self, input_ratio: str) -> Tuple[str]:
+        """
+        Find the closest named aspect ratio with its label.
 
-        width, height = map(float, input_ratio.split(':'))
-        if height == 0:
-            raise ValueError("Height cannot be zero")
+        Args:
+            input_ratio: String in 'width:height' format (e.g. "16:9")
 
-        target = width / height
+        Returns:
+            Tuple[str]: Closest ratio with label or "1:1" on error
 
-        closest = None
-        smallest_diff = float('inf')
+        Example:
+            >>> node.match_ratio("16:9")
+            ("16:9 (Panorama)",)
+        """
+        try:
+            # Validate input
+            if not input_ratio or ":" not in input_ratio:
+                logger.warning(f"Invalid ratio format: {input_ratio}")
+                return ("1:1 (Perfect Square)",)
 
-        for ratio_str, label in KNOWN_RATIOS.items():
-            w, h = map(float, ratio_str.split(':'))
-            current_ratio = w / h
-            diff = abs(current_ratio - target)
+            # Parse ratio safely
+            try:
+                width, height = map(float, input_ratio.split(":"))
+                if width <= 0 or height <= 0:
+                    raise ValueError("Width and height must be positive")
+            except (ValueError, TypeError) as e:
+                logger.error(f"Error parsing ratio numbers: {e}")
+                return ("1:1 (Perfect Square)",)
 
-            if diff < smallest_diff:
-                smallest_diff = diff
-                closest = f"{ratio_str} ({label})"
+            # Calculate target ratio
+            target_ratio = width / height
+            closest_ratio = "1:1"
+            closest_label = "Perfect Square"
+            min_diff = float('inf')
 
-        return (closest,)
+            # Find closest named ratio
+            for ratio_str, label in KNOWN_RATIOS.items():
+                w, h = map(float, ratio_str.split(":"))
+                current_ratio = w / h
+                diff = abs(current_ratio - target_ratio)
+
+                if diff < min_diff:
+                    min_diff = diff
+                    closest_ratio = ratio_str
+                    closest_label = label
+
+            # Format result with ratio and label
+            return (f"{closest_ratio} ({closest_label})",)
+
+        except Exception as e:
+            logger.error(f"Error matching aspect ratio: {e}")
+            return ("1:1 (Perfect Square)",)  # Safe default
 
 
 class ResolutionSelector:
@@ -239,8 +375,8 @@ class ResolutionSelector:
         },
     }
 
-    # FLUX specific resolution presets
-    FLUX_PRESETS = {
+    # FLUX Kontext specific resolution presets
+    FLUX_KONTEXT_PRESETS = {
         "672×1568  (9:21)": (672, 1568),
         "688×1504  (9:19.5)": (688, 1504),
         "720×1456  (9:18)": (720, 1456),
@@ -260,21 +396,96 @@ class ResolutionSelector:
         "1568×672  (21:9)": (1568, 672),
     }
 
+    # FLUX general resolution presets based on KNOWN_RATIOS
+    # Organized from most vertical to most horizontal, using KNOWN_RATIOS
+    FLUX_PRESETS = {
+        "640×1504  (9:21)": (640, 1504),  # Ultra Tall
+        "688×1456  (9:19)": (688, 1456),  # Tall Slim
+        "704×1248  (9:16)": (704, 1248),  # Slim Vertical
+        "768×1232  (5:8)": (768, 1232),   # Tall Portrait
+        "800×1120  (5:7)": (800, 1120),   # Balanced Portrait
+        "832×1040  (4:5)": (832, 1040),   # Artistic Frame
+        "880×1168  (3:4)": (880, 1168),   # Golden Ratio
+        "896×1120  (4:5)": (896, 1120),   # Artistic Frame
+        "944×1184  (2:3)": (944, 1184),   # Classic Portrait
+        "960×1280  (3:5)": (960, 1280),   # Elegant Vertical
+        "1024×1024  (1:1)": (1024, 1024), # Perfect Square
+        "1120×896  (5:4)": (1120, 896),   # Balanced Frame
+        "1184×944  (5:4)": (1184, 944),   # Balanced Frame
+        "1216×912  (4:3)": (1216, 912),   # Classic Landscape
+        "1248×832  (3:2)": (1248, 832),   # Golden Landscape
+        "1280×768  (5:3)": (1280, 768),   # Wide Horizon
+        "1344×768  (7:5)": (1344, 768),   # Elegant Landscape
+        "1360×848  (8:5)": (1360, 848),   # Cinematic View
+        "1408×792  (16:9)": (1408, 792),  # Panorama
+        "1472×768  (19:9)": (1472, 768),  # Cinematic Ultrawide
+        "1504×640  (21:9)": (1504, 640),  # Epic Ultrawide
+        "1536×432  (32:9)": (1536, 432),  # Extreme Ultrawide
+    }
+
+    # SDXL optimized resolution presets
+    SDXL_PRESETS = {
+        "640×1536  (5:12)": (640, 1536),
+        "768×1344  (4:7)": (768, 1344),
+        "832×1216  (2:3)": (832, 1216),
+        "896×1152  (7:9)": (896, 1152),
+        "1024×1024  (1:1)": (1024, 1024),
+        "1152×896  (9:7)": (1152, 896),
+        "1216×832  (3:2)": (1216, 832),
+        "1344×768  (7:4)": (1344, 768),
+        "1536×640  (12:5)": (1536, 640),
+    }
+
+    # Make resolution sets available to JavaScript
     @classmethod
-    def INPUT_TYPES(cls):
+    def _get_model_resolutions(cls, model_type: str) -> list[str]:
+        if model_type == "FLUX":
+            return list(cls.FLUX_PRESETS.keys())
+        elif model_type == "FLUX Kontext":
+            return list(cls.FLUX_KONTEXT_PRESETS.keys())
+        elif model_type == "SDXL":
+            return list(cls.SDXL_PRESETS.keys())
+        return []
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict[str, dict[str, Any]]:
+        default_resolution = "1024×1024  (1:1)"
+        
+        # Initialize with FLUX resolutions as default
+        initial_resolutions = list(cls.FLUX_PRESETS.keys())
+        
         return {
             "required": {
                 "mode": (["auto", "manual"], {"default": "auto", "tooltip": "Auto from image or override; or manual size"}),
-                "model": (["WAN", "FLUX"], {"default": "WAN", "tooltip": "Model type: WAN uses quality presets, FLUX uses specific resolution presets"}),
+                "model": (["WAN", "FLUX", "FLUX Kontext", "SDXL"], {"default": "WAN", "tooltip": "Model type: WAN uses quality presets, others use specific resolution presets"}),
                 "quality": (["480p", "720p"], {"default": "480p", "tooltip": "Preset quality tier (WAN only)"}),
                 "aspect_ratio_override": (["off", "1:1", "4:3", "16:9", "3:4", "9:16"], {"default": "off", "tooltip": "Force a specific aspect ratio in auto mode (WAN only)"}),
-                "aspect_ratio": (list(cls.FLUX_PRESETS.keys()), {"default": "1024×1024  (1:1)", "tooltip": "Specific resolution preset (FLUX only)"}),
+                "aspect_ratio": (initial_resolutions, {"default": default_resolution, "tooltip": "Resolution preset for the selected model"}),
                 "manual_width": ("INT", {"default": 832, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual width (multiples of {cls.DIMENSION_ALIGNMENT})"}),
                 "manual_height": ("INT", {"default": 480, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual height (multiples of {cls.DIMENSION_ALIGNMENT})"}),
             },
             "optional": {
                 "image": ("IMAGE", {"tooltip": "Optional input image"}),
             },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, mode: str, model: str, quality: str, aspect_ratio_override: str, aspect_ratio: str, manual_width: int, manual_height: int, **kwargs) -> bool | str:
+        if mode == "manual" or model == "WAN":
+            return True
+            
+        valid_resolutions = cls._get_model_resolutions(model)
+        if not valid_resolutions:
+            return True
+            
+        if aspect_ratio not in valid_resolutions:
+            return f"Selected resolution '{aspect_ratio}' is not valid for {model} model"
+
+        return True
+
+        return {
+            "manual_width": ("INT", {"default": 832, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual width (multiples of {cls.DIMENSION_ALIGNMENT})"}),
+            "manual_height": ("INT", {"default": 480, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual height (multiples of {cls.DIMENSION_ALIGNMENT})"}),
         }
 
     RETURN_TYPES = ("INT", "INT")
@@ -299,8 +510,8 @@ class ResolutionSelector:
 
         # Auto mode
         if mode == "auto":
-            if model == "FLUX":
-                return self._handle_flux_mode(aspect_ratio)
+            if model in ["FLUX", "FLUX Kontext", "SDXL"]:
+                return self._handle_flux_mode(aspect_ratio, model)
             else:
                 return self._handle_wan_mode(image, quality, aspect_ratio_override)
 
@@ -319,11 +530,18 @@ class ResolutionSelector:
             )
         return (manual_width, manual_height)
 
-    def _handle_flux_mode(self, aspect_ratio: str) -> Tuple[int, int]:
-        """Handle FLUX model resolution selection"""
-        if aspect_ratio not in self.FLUX_PRESETS:
-            raise ValueError(f"Invalid FLUX aspect ratio: {aspect_ratio}")
-        return self.FLUX_PRESETS[aspect_ratio]
+    def _handle_flux_mode(self, aspect_ratio: str, model: str) -> Tuple[int, int]:
+        """Handle FLUX/SDXL/FLUX Kontext model resolution selection"""
+        if model == "SDXL":
+            presets = self.SDXL_PRESETS
+        elif model == "FLUX Kontext":
+            presets = self.FLUX_KONTEXT_PRESETS
+        else:  # FLUX
+            presets = self.FLUX_PRESETS
+            
+        if aspect_ratio not in presets:
+            raise ValueError(f"Invalid {model} aspect ratio: {aspect_ratio}")
+        return presets[aspect_ratio]
 
     def _handle_wan_mode(self, image: Any, quality: str, aspect_ratio_override: str) -> Tuple[int, int]:
         """Handle WAN model resolution selection"""
@@ -333,10 +551,52 @@ class ResolutionSelector:
             return self._handle_wan_without_image(quality, aspect_ratio_override)
 
     def _handle_wan_with_image(self, image: Any, quality: str, aspect_ratio_override: str) -> Tuple[int, int]:
-        """Handle WAN mode when an image is provided"""
-        image_height, image_width = extract_image_dimensions(image)
-        # Choose target aspect ratio and possible forced orientation based on override
-        ratio_key, forced_orientation = self._resolve_ratio_key(aspect_ratio_override, image_width, image_height)
+        """
+        Handle WAN mode when an image is provided.
+
+        Args:
+            image: Input image
+            quality: Quality preset ("480p" or "720p")
+            aspect_ratio_override: Override ratio ("off", "1:1", "4:3", etc.)
+
+        Returns:
+            Tuple[int, int]: Selected width and height
+        """
+        try:
+            # Extract dimensions using base class helper
+            processor = ImageProcessingBase()
+            image_height, image_width = processor.extract_image_dimensions(image)
+
+            # Choose target ratio and orientation
+            ratio_key, forced_orientation = self._resolve_ratio_key(
+                aspect_ratio_override,
+                int(image_width),
+                int(image_height)
+            )
+
+            # Map portrait ratios to landscape for preset lookup
+            base_ratio_key = {"3:4": "4:3", "9:16": "16:9"}.get(ratio_key, ratio_key)
+            base_width, base_height = self._select_base_resolution(quality, base_ratio_key)
+
+            # Determine final orientation
+            orientation = forced_orientation
+            if not orientation and ratio_key != "1:1":
+                orientation = "landscape" if image_width >= image_height else "portrait"
+
+            # Swap dimensions for portrait if needed
+            if orientation == "portrait" and ratio_key != "1:1":
+                base_width, base_height = base_height, base_width
+
+            return base_width, base_height
+
+        except Exception as e:
+            logger.error(f"Error handling WAN mode: {e}")
+            # Return safe defaults based on quality
+            defaults = {
+                "480p": (512, 512),
+                "720p": (768, 768)
+            }
+            return defaults.get(quality, (512, 512))
 
         # Our presets are defined for landscape keys; map portrait keys to their landscape equivalents
         base_ratio_key = {"3:4": "4:3", "9:16": "16:9"}.get(ratio_key, ratio_key)
@@ -368,38 +628,59 @@ class ResolutionSelector:
         return (base_width, base_height)
 
     def _resolve_ratio_key(self, override_key: str, width: int, height: int) -> Tuple[str, Optional[str]]:
-        # Respect explicit override when provided
+        """
+        Determine the target aspect ratio and orientation.
+        
+        Args:
+            override_key: Ratio override ("off", "1:1", "4:3", etc.)
+            width: Image width or 1 if no image
+            height: Image height or 1 if no image
+            
+        Returns:
+            Tuple[str, Optional[str]]: (ratio_key, orientation)
+            ratio_key: "1:1", "4:3", "16:9", etc.
+            orientation: "portrait", "landscape", or None
+        """
+        # Handle explicit overrides
         if override_key in {"16:9", "4:3", "1:1"}:
             return override_key, (None if override_key == "1:1" else "landscape")
         if override_key in {"3:4", "9:16"}:
             return override_key, "portrait"
 
-        # Otherwise, compute a normalized aspect ratio (>= 1) so portrait/landscape
-        # both compare fairly against canonical landscape ratios.
-        longer = max(width, height)
-        shorter = min(width, height)
-        if shorter == 0:
-            return "1:1", None
-        aspect = longer / shorter
+        # Compute normalized ratio from dimensions
+        try:
+            longer = max(width, height)
+            shorter = min(width, height)
+            if shorter == 0:
+                return "1:1", None
 
-        # Prefer 1:1 only when sufficiently close to square
-        if abs(aspect - 1.0) <= self.ASPECT_RATIO_TOLERANCE:
-            return "1:1", None
+            aspect = longer / shorter
 
-        candidates = {
-            "16:9": 16 / 9,
-            "4:3": 4 / 3,
-        }
+            # Close to square
+            if abs(aspect - 1.0) <= self.ASPECT_RATIO_TOLERANCE:
+                return "1:1", None
 
-        closest_key = None
-        smallest_diff = float("inf")
-        for key, value in candidates.items():
-            diff = abs(aspect - value)
-            if diff < smallest_diff:
-                smallest_diff = diff
-                closest_key = key
-        # Orientation not forced when override is off; it will be inferred from the image
-        return closest_key, None
+            # Find closest standard ratio
+            candidates = {
+                "16:9": 16 / 9,
+                "4:3": 4 / 3,
+            }
+
+            closest_key = "16:9"  # Default to widescreen
+            smallest_diff = float("inf")
+
+            for key, value in candidates.items():
+                diff = abs(aspect - value)
+                if diff < smallest_diff:
+                    smallest_diff = diff
+                    closest_key = key
+
+            # Orientation will be inferred from image
+            return closest_key, None
+
+        except Exception as e:
+            logger.error(f"Error resolving ratio: {e}")
+            return "1:1", None  # Safe default
 
     def _select_base_resolution(self, quality: str, ratio_key: str) -> Tuple[int, int]:
         # Portrait orientation is applied later by swapping width/height when needed.

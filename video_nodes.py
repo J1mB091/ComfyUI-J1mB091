@@ -3,14 +3,89 @@ import numpy as np
 from typing import Any, Tuple, Optional
 
 
-class ExtractLastFrame:
-    """
-    Extract the last frame from an image batch.
-    Returns the final image from the input batch, useful for preserving transition frames.
-    """
+from typing import Any, Optional, Tuple, Union, Dict, TYPE_CHECKING
+import logging
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    import torch
+    from torch import Tensor
+else:
+    try:
+        import torch
+        from torch import Tensor
+    except ImportError:
+        print("Error: PyTorch is not installed. Please install PyTorch to use this module.")
+        raise
+
+class VideoBaseNode:
+    """Base class for video processing nodes."""
+    
+    @staticmethod
+    def ensure_tensor(images: Any) -> "Tensor":
+        """
+        Ensure input is a tensor and on CPU.
+        
+        Args:
+            images: Input image batch
+            
+        Returns:
+            torch.Tensor: Image batch as tensor
+            
+        Raises:
+            ValueError: If input cannot be converted to tensor
+        """
+        try:
+            # Check if already a tensor
+            if torch.is_tensor(images):
+                return images.cpu()
+            
+            # Try getting CPU version if available
+            if hasattr(images, 'cpu'):
+                images = images.cpu()
+                
+            # Convert to tensor if not already
+            if not torch.is_tensor(images):
+                images = torch.tensor(images)
+                
+            return images.cpu()
+        except Exception as e:
+            logger.error(f"Failed to convert input to tensor: {e}")
+            raise ValueError(f"Could not convert input to tensor: {e}")
+
+    @staticmethod 
+    def create_empty_batch(shape: Optional[Tuple[int, ...]] = None) -> "Tensor":
+        """
+        Create an empty image batch with given shape or default.
+        
+        Args:
+            shape: Optional shape for the empty batch
+            
+        Returns:
+            torch.Tensor: Empty image batch (0, H, W, C)
+            
+        Raises:
+            RuntimeError: If empty batch creation fails
+        """
+        try:
+            if shape is None or len(shape) < 2:
+                # Default shape for image batch (0, H, W, C)
+                return torch.zeros((0, 512, 512, 3))
+            # Use provided shape but keep batch dimension as 0
+            return torch.zeros((0, *shape[1:]))
+        except Exception as e:
+            logger.error(f"Failed to create empty batch: {e}")
+            raise RuntimeError(f"Could not create empty batch: {e}")
+
+
+# ComfyUI Nodes
+class ExtractLastFrame(VideoBaseNode):
+    """Extract the last frame from an image batch."""
 
     @classmethod
-    def INPUT_TYPES(cls):
+    def INPUT_TYPES(cls) -> Dict[str, Any]:
+        """Define the input types and tooltips."""
         return {
             "required": {
                 "images": ("IMAGE", {"tooltip": "Input image batch to extract last frame from"}),
@@ -22,7 +97,7 @@ class ExtractLastFrame:
     FUNCTION = "extract_last_frame"
     CATEGORY = "J1mB091/Video"
 
-    def extract_last_frame(self, images: Any) -> Tuple[Any]:
+    def extract_last_frame(self, images: Any) -> Tuple["Tensor"]:
         """
         Extract the last frame from an image batch.
 
@@ -30,30 +105,88 @@ class ExtractLastFrame:
             images: Input image batch (tensor)
 
         Returns:
-            Last frame as single image tensor
+            Tuple[Tensor]: Last frame as single image tensor
+            
+        Raises:
+            ValueError: If input cannot be converted to tensor
         """
         try:
             # Ensure input is a tensor
-            if not isinstance(images, torch.Tensor):
-                if hasattr(images, 'cpu'):
-                    images = images.cpu()
-                images = torch.tensor(images)
-
-            # Move to CPU for operations
-            images = images.cpu()
-
-            # Extract the last frame
+            images = self.ensure_tensor(images)
+            
+            # Extract last frame if batch is not empty
             if images.shape[0] > 0:
                 last_frame = images[-1:]  # Keep as batch with 1 image
                 return (last_frame,)
-            else:
-                # Return empty tensor if no images
-                return (torch.empty(0, *images.shape[1:], dtype=images.dtype),)
+            
+            # Return empty batch with same dimensions if input is empty
+            return (self.create_empty_batch(images.shape),)
 
         except Exception as e:
-            print(f"Error extracting last frame: {e}")
-            # Return empty tensor on error
-            return (torch.empty(0, 512, 512, 3, dtype=torch.float32),)
+            logger.error(f"Error extracting last frame: {e}")
+            return (self.create_empty_batch(),)
+
+class ImageBatchCombiner(VideoBaseNode):
+    """Combine two image batches in sequence."""
+
+    @classmethod
+    def INPUT_TYPES(cls) -> Dict[str, Any]:
+        """Define input types for the node."""
+        return {
+            "required": {
+                "first_images": ("IMAGE", {
+                    "tooltip": "First images in sequence (required, placed before last). All images must have same dimensions."
+                }),
+                "last_images": ("IMAGE", {
+                    "tooltip": "Last images in sequence (required, placed after first). All images must have same dimensions."
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("IMAGE",)
+    RETURN_NAMES = ("combined_batch",)
+    FUNCTION = "combine_batches"
+    CATEGORY = "J1mB091/Video"
+
+    def combine_batches(self, first_images: Any, last_images: Any) -> Tuple["Tensor"]:
+        """
+        Combine two image batches in sequence.
+
+        Args:
+            first_images: First batch of images (tensor)
+            last_images: Second batch of images (tensor)
+
+        Returns:
+            Tuple[Tensor]: Combined image batch
+
+        Raises:
+            ValueError: If tensors have mismatched dimensions or conversion fails
+        """
+        try:
+            # Convert inputs to tensors
+            first_images = self.ensure_tensor(first_images)
+            last_images = self.ensure_tensor(last_images)
+            
+            # Move to CPU for consistent operations
+            first_images = first_images.cpu()
+            last_images = last_images.cpu()
+            
+            # Validate dimensions match
+            if first_images.shape[1:] != last_images.shape[1:]:
+                logger.error("Image dimension mismatch - batches must have same H, W, C dimensions")
+                return (self.create_empty_batch(),)
+            
+            # Handle empty inputs
+            if first_images.shape[0] == 0 and last_images.shape[0] == 0:
+                return (self.create_empty_batch(),)
+            
+            # Create combined batch
+            combined = torch.cat([first_images, last_images], dim=0)
+            return (combined,)
+
+        except Exception as e:
+            logger.error(f"Error combining image batches: {e}")
+            return (self.create_empty_batch(),)
 
 
 class ImageBatchCombiner:

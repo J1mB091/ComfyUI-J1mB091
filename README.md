@@ -1,6 +1,17 @@
-# ComfyUI-J1mB091 Custom Nodes 🎨
+# ComfyUI Custom Nodes 🎨
 
-A collection of useful custom nodes for ComfyUI, focusing on resolution utilities and image batch manipulation.
+A collection of custom nodes for ComfyUI focused on image resolution management and video frame handling.
+
+## ✨ Features
+
+### 📐 Resolution Management
+- **Image Dimensions**: Extract and manipulate image dimensions
+- **Aspect Ratio**: Calculate and match aspect ratios automatically
+- **Resolution Selector**: Smart resolution presets with SDXL/FLUX support
+
+### 🎥 Video Frame Handling
+- **Extract Last Frame**: Get the final frame from a batch sequence 
+- **Image Batch Combiner**: Join image batches while preserving dimensions
 
 ## 📦 Installation
 
@@ -135,30 +146,46 @@ Prefix Frames → J1mB091's Image Batch Combiner (last_images) → Main Video Fr
 
 ## 🔧 Technical Details
 
+## 🔧 Technical Details
+
 ### Dependencies
-This node pack uses only standard ComfyUI dependencies:
-- `torch` - Tensor operations
-- `numpy` - Array operations  
-- `Pillow` - Image processing
-- Built-in Python modules (`math`, `typing`)
+- Python 3.8+
+- PyTorch 2.0.0+
+- typing-extensions 4.5.0+
+- ComfyUI latest version
 
 ### File Structure
 ```
 ComfyUI-J1mB091/
-├── __init__.py                           # Node registration
-├── resolution_nodes.py                   # Resolution utilities
-├── video_nodes.py                       # Video sequence manipulation
+├── __init__.py                         # Node registration
+├── resolution_nodes.py                 # Resolution utilities
+├── video_nodes.py                     # Video processing
 └── js/
-    └── conditional_widget_visibility.js  # Frontend enhancements
+    └── conditional_widget_visibility.js # UI enhancements
 ```
+
+### Node Categories
+1. Resolution Nodes:
+   - `AspectRatioFromImage` - Calculate aspect ratio
+   - `ImageDimensions` - Get image dimensions 
+   - `NamedAspectRatioMatcher` - Match standard ratios
+   - `ResolutionSelector` - Smart resolution presets
+
+2. Video Nodes:
+   - `ExtractLastFrame` - Get final frame from batch
+   - `ImageBatchCombiner` - Join image sequences
 
 ## 🤝 Contributing
 
-Feel free to submit issues, feature requests, or pull requests to improve this node pack!
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/improvement`)
+3. Commit changes (`git commit -am 'Add feature'`)
+4. Push to branch (`git push origin feature/improvement`)
+5. Open a Pull Request
 
 ## 📄 License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
+MIT - see LICENSE file for details
 
 The GPL-3.0 license ensures that:
 - ✅ You can freely use, modify, and distribute this software
