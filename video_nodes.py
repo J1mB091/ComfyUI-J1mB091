@@ -127,85 +127,22 @@ class ExtractLastFrame(VideoBaseNode):
             return (self.create_empty_batch(),)
 
 class ImageBatchCombiner(VideoBaseNode):
-    """Combine two image batches in sequence."""
+    """Combine two image batches for WAN/Video merging.
+
+    Features:
+    - Concatenate first_images (excluding its last frame) with last_images to avoid duplication
+    - Optional flag to ignore first_images entirely
+    - Validates dimension compatibility
+    - Safe fallbacks on error
+    """
 
     @classmethod
     def INPUT_TYPES(cls) -> Dict[str, Any]:
-        """Define input types for the node."""
         return {
             "required": {
-                "first_images": ("IMAGE", {
-                    "tooltip": "First images in sequence (required, placed before last). All images must have same dimensions."
-                }),
-                "last_images": ("IMAGE", {
-                    "tooltip": "Last images in sequence (required, placed after first). All images must have same dimensions."
-                }),
-            }
-        }
-
-    RETURN_TYPES = ("IMAGE",)
-    RETURN_NAMES = ("combined_batch",)
-    FUNCTION = "combine_batches"
-    CATEGORY = "J1mB091/Video"
-
-    def combine_batches(self, first_images: Any, last_images: Any) -> Tuple["Tensor"]:
-        """
-        Combine two image batches in sequence.
-
-        Args:
-            first_images: First batch of images (tensor)
-            last_images: Second batch of images (tensor)
-
-        Returns:
-            Tuple[Tensor]: Combined image batch
-
-        Raises:
-            ValueError: If tensors have mismatched dimensions or conversion fails
-        """
-        try:
-            # Convert inputs to tensors
-            first_images = self.ensure_tensor(first_images)
-            last_images = self.ensure_tensor(last_images)
-            
-            # Move to CPU for consistent operations
-            first_images = first_images.cpu()
-            last_images = last_images.cpu()
-            
-            # Validate dimensions match
-            if first_images.shape[1:] != last_images.shape[1:]:
-                logger.error("Image dimension mismatch - batches must have same H, W, C dimensions")
-                return (self.create_empty_batch(),)
-            
-            # Handle empty inputs
-            if first_images.shape[0] == 0 and last_images.shape[0] == 0:
-                return (self.create_empty_batch(),)
-            
-            # Create combined batch
-            combined = torch.cat([first_images, last_images], dim=0)
-            return (combined,)
-
-        except Exception as e:
-            logger.error(f"Error combining image batches: {e}")
-            return (self.create_empty_batch(),)
-
-
-class ImageBatchCombiner:
-    """
-    Combine two image batches for WAN video merging.
-    Images from 'first_images' are placed before 'last_images' in the final sequence.
-    The last image from 'first_images' is automatically excluded to prevent duplication.
-    Can optionally ignore first_images to use only last_images.
-    Note: All images in both batches must have the same dimensions for proper concatenation.
-    Useful for combining prefix frames with main video sequences.
-    """
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        return {
-            "required": {
-                "first_images": ("IMAGE", {"tooltip": "First images in sequence (required, placed before last). All images must have same dimensions."}),
-                "last_images": ("IMAGE", {"tooltip": "Last images in sequence (required). All images must have same dimensions."}),
-                "ignore_first_images": ("BOOLEAN", {"default": False, "tooltip": "If true, ignores first_images and returns only last_images"}),
+                "first_images": ("IMAGE", {"tooltip": "First images in sequence (placed before last_images). Must match dimensions."}),
+                "last_images": ("IMAGE", {"tooltip": "Last images in sequence. Must match dimensions."}),
+                "ignore_first_images": ("BOOLEAN", {"default": False, "tooltip": "If true, only use last_images"}),
             }
         }
 
@@ -214,54 +151,26 @@ class ImageBatchCombiner:
     FUNCTION = "combine_batches"
     CATEGORY = "J1mB091/Video"
 
-    def combine_batches(self, first_images: Any, last_images: Any, ignore_first_images: bool) -> Tuple[Any]:
-        """
-        Combine two image batches where first images come before last images.
-        The last image from first_images is automatically excluded to prevent duplication.
-
-        Args:
-            first_images: First images in sequence (tensor, required, placed before last)
-            last_images: Last images in sequence (tensor, required)
-            ignore_first_images: If true, ignores first_images and returns only last_images
-
-        Returns:
-            Combined image batch as tensor
-        """
+    def combine_batches(self, first_images: Any, last_images: Any, ignore_first_images: bool) -> Tuple["Tensor"]:
         try:
-            # Ensure both inputs are tensors
-            if not isinstance(first_images, torch.Tensor):
-                if hasattr(first_images, 'cpu'):
-                    first_images = first_images.cpu()
-                first_images = torch.tensor(first_images)
+            first_t = self.ensure_tensor(first_images)
+            last_t = self.ensure_tensor(last_images)
 
-            if not isinstance(last_images, torch.Tensor):
-                if hasattr(last_images, 'cpu'):
-                    last_images = last_images.cpu()
-                last_images = torch.tensor(last_images)
+            if first_t.shape[1:] != last_t.shape[1:]:  # type: ignore[union-attr]
+                logger.error("Image dimension mismatch - batches must share H,W,C")
+                return (self.create_empty_batch(),)
 
-            # Move to CPU for operations
-            first_images = first_images.cpu()
-            last_images = last_images.cpu()
-
-            # Handle combined_images based on ignore_first_images flag
             if ignore_first_images:
-                # Use only last_images for combined output
-                combined = last_images
+                return (last_t,)
+
+            # Exclude last frame of first batch to avoid duplication
+            if first_t.shape[0] > 1:  # type: ignore[index]
+                first_trimmed = first_t[:-1]
+                combined = torch.cat([first_trimmed, last_t], dim=0)
             else:
-                # Combine first_images (without last frame) + last_images
-                if first_images.shape[0] > 1:
-                    first_images_trimmed = first_images[:-1]  # Remove last image
-                    combined = torch.cat([first_images_trimmed, last_images], dim=0)
-                elif first_images.shape[0] == 1:
-                    # Only one image in first_images, so combined is just last_images (since we would remove the only image)
-                    combined = last_images
-                else:
-                    # No images in first_images, so combined is just last_images
-                    combined = last_images
+                combined = last_t
 
             return (combined,)
-
         except Exception as e:
-            print(f"Error combining image batches: {e}")
-            # Return safe defaults if combination fails
-            return (last_images,)
+            logger.error(f"Error combining image batches: {e}")
+            return (self.create_empty_batch(),)

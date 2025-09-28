@@ -144,23 +144,31 @@ class ImageProcessingBase:
             if image is None:
                 return None
 
-            # Convert tensor to numpy
-            if torch.is_tensor(image):
-                image = image.detach().cpu().numpy()
+            np_img: np.ndarray
 
-            # Handle different shapes
-            if image.ndim == 4:  # [batch, height, width, channels]
-                image = image[0]  # Take first image
-            elif image.ndim == 3:  # [height, width, channels]
-                pass  # Already in correct format
+            if torch.is_tensor(image):  # type: ignore[arg-type]
+                t = cast(Tensor, image).detach().cpu()
+                if t.dtype.is_floating_point:
+                    t = t.clamp(0, 1).mul(255).to(torch.uint8)
+                else:
+                    t = t.to(torch.uint8)
+                np_img = t.numpy()
             else:
-                raise ValueError(f"Invalid shape: {image.shape}")
+                arr = cast(Union[np.ndarray, Any], image)
+                if not isinstance(arr, np.ndarray):
+                    raise TypeError("Input must be a torch.Tensor or numpy.ndarray")
+                np_img = arr
 
-            # Scale and convert to uint8
-            if image.dtype != np.uint8:
-                image = (image * 255).clip(0, 255).astype(np.uint8)
+            # Reduce batch dimension if present
+            if np_img.ndim == 4:
+                np_img = np_img[0]
+            if np_img.ndim != 3:
+                raise ValueError(f"Invalid shape: {getattr(np_img, 'shape', '?')}")
 
-            return Image.fromarray(image)
+            if np_img.dtype != np.uint8:
+                np_img = np.clip(np_img, 0, 255).astype(np.uint8)
+
+            return Image.fromarray(np_img)
 
         except Exception as e:
             logger.error(f"Error converting to PIL: {e}")
@@ -396,31 +404,31 @@ class ResolutionSelector:
         "1568×672  (21:9)": (1568, 672),
     }
 
-    # FLUX general resolution presets based on KNOWN_RATIOS
-    # Organized from most vertical to most horizontal, using KNOWN_RATIOS
+    # General FLUX presets (must stay in sync with js/resolution_selector.js)
     FLUX_PRESETS = {
-        "640×1504  (9:21)": (640, 1504),  # Ultra Tall
-        "688×1456  (9:19)": (688, 1456),  # Tall Slim
-        "704×1248  (9:16)": (704, 1248),  # Slim Vertical
-        "768×1232  (5:8)": (768, 1232),   # Tall Portrait
-        "800×1120  (5:7)": (800, 1120),   # Balanced Portrait
-        "832×1040  (4:5)": (832, 1040),   # Artistic Frame
-        "880×1168  (3:4)": (880, 1168),   # Golden Ratio
-        "896×1120  (4:5)": (896, 1120),   # Artistic Frame
-        "944×1184  (2:3)": (944, 1184),   # Classic Portrait
-        "960×1280  (3:5)": (960, 1280),   # Elegant Vertical
-        "1024×1024  (1:1)": (1024, 1024), # Perfect Square
-        "1120×896  (5:4)": (1120, 896),   # Balanced Frame
-        "1184×944  (5:4)": (1184, 944),   # Balanced Frame
-        "1216×912  (4:3)": (1216, 912),   # Classic Landscape
-        "1248×832  (3:2)": (1248, 832),   # Golden Landscape
-        "1280×768  (5:3)": (1280, 768),   # Wide Horizon
-        "1344×768  (7:5)": (1344, 768),   # Elegant Landscape
-        "1360×848  (8:5)": (1360, 848),   # Cinematic View
-        "1408×792  (16:9)": (1408, 792),  # Panorama
-        "1472×768  (19:9)": (1472, 768),  # Cinematic Ultrawide
-        "1504×640  (21:9)": (1504, 640),  # Epic Ultrawide
-        "1536×432  (32:9)": (1536, 432),  # Extreme Ultrawide
+        "576×2048  (9:32)": (576, 2048),
+        "640×1472  (9:21)": (640, 1472),
+        "704×1472  (9:19)": (704, 1472),
+        "768×1344  (9:16)": (768, 1344),
+        "896×1152  (7:9)": (896, 1152),
+        "832×1280  (5:8)": (832, 1280),
+        "832×1152  (5:7)": (832, 1152),
+        "896×1152  (4:5)": (896, 1152),
+        "768×1280  (3:5)": (768, 1280),
+        "896×1152  (3:4)": (896, 1152),
+        "832×1280  (2:3)": (832, 1280),
+        "1024×1024  (1:1)": (1024, 1024),
+        "1280×832  (3:2)": (1280, 832),
+        "1152×896  (4:3)": (1152, 896),
+        "1280×768  (5:3)": (1280, 768),
+        "1152×896  (5:4)": (1152, 896),
+        "1152×832  (7:5)": (1152, 832),
+        "1280×832  (8:5)": (1280, 832),
+        "1152×896  (9:7)": (1152, 896),
+        "1344×768  (16:9)": (1344, 768),
+        "1472×704  (19:9)": (1472, 704),
+        "1472×640  (21:9)": (1472, 640),
+        "2048×576  (32:9)": (2048, 576),
     }
 
     # SDXL optimized resolution presets
