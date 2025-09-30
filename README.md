@@ -1,6 +1,6 @@
 # ComfyUI Custom Nodes 🎨
 
-A collection of custom nodes for ComfyUI focused on image resolution management and video frame handling.
+A collection of custom nodes for ComfyUI focused on image resolution management, video frame handling, and workflow utilities.
 
 ## ✨ Features
 
@@ -10,8 +10,12 @@ A collection of custom nodes for ComfyUI focused on image resolution management 
 - **Resolution Selector**: Smart resolution presets with SDXL/FLUX support
 
 ### 🎥 Video Frame Handling
-- **Extract Last Frame**: Get the final frame from a batch sequence 
+- **Extract Last Frame**: Get the final frame from a batch sequence
 - **Image Batch Combiner**: Join image batches while preserving dimensions
+
+### 🌱 Workflow Utilities
+- **Seed Generator**: Generate and pass seed values for reproducible results
+- **Save Image with Seed**: Save images with automatic seed-based naming and proper counter logic
 
 ## 📦 Installation
 
@@ -109,6 +113,50 @@ Combines two image batches for WAN video merging with automatic duplicate preven
 - When `ignore_first_images = True`: Returns only last_images
 - Useful for dynamic video workflows where you need to include/exclude intro frames
 
+### Workflow Utilities 🌱💾
+
+All utility nodes are located in the **J1mB091/Utility** category.
+
+#### **J1mB091's Seed Generator 🌱**
+Generates a seed number for reproducible sampling and image naming.
+
+**Input:**
+- **`seed`** (required) - Seed number for generation (0 to 18,446,744,073,709,551,615)
+
+**Output:**
+- **`seed`** - The seed value for samplers and save nodes
+
+**Use Case:**
+- Generate consistent seeds for reproducible results
+- Pass seed values to samplers and save nodes for organized file naming
+
+#### **J1mB091's Save Image 💾**
+Saves images with optional seed-based naming and proper sequential counter logic.
+
+**Features:**
+- Automatic sequential counter that increments across all saves
+- Optional seed integration in filename
+- Proper ComfyUI preview support
+- PNG metadata embedding (prompt and workflow info)
+- Counter works regardless of seed changes or absence
+
+**Inputs:**
+- **`images`** (required) - Images to save
+- **`filename_prefix`** (required) - Base filename prefix
+- **`seed`** (optional) - Seed number from Seed Generator node
+
+**Output:**
+- Saves images to ComfyUI output directory with proper naming
+
+**Filename Format:**
+- With seed: `prefix_XXXXX_seed_.png` (e.g., `ComfyUI_00001_12345_.png`)
+- Without seed: `prefix_XXXXX_.png` (e.g., `ComfyUI_00001_.png`)
+
+**Counter Behavior:**
+- Always increments sequentially (00001, 00002, 00003, etc.)
+- Works across different seed values and save operations
+- Prevents filename conflicts automatically
+
 
 
 ## 🎛️ Frontend Features
@@ -132,8 +180,6 @@ Image → J1mB091's Aspect Ratio From Image → J1mB091's Match Named Aspect Rat
 Image → J1mB091's Resolution Selector (auto mode) → KSampler
 ```
 
-
-
 ### Extract Transition Frame
 ```
 Prefix Video Frames → J1mB091's Extract Last Frame → Transition Frame
@@ -143,6 +189,20 @@ Prefix Video Frames → J1mB091's Extract Last Frame → Transition Frame
 ```
 Prefix Frames → J1mB091's Image Batch Combiner (last_images) → Main Video Frames → Combined Sequence
 ```
+
+### Reproducible Seed Workflow
+```
+J1mB091's Seed Generator → KSampler (seed input) → J1mB091's Save Image (seed input)
+```
+
+### Organized Image Saving with Seeds
+```
+Latent Image → KSampler → J1mB091's Save Image
+                              ↑
+                              J1mB091's Seed Generator
+```
+
+**Result:** Images saved as `ComfyUI_00001_12345_.png`, `ComfyUI_00002_12345_.png`, etc.
 
 ## 🔧 Technical Details
 
@@ -160,20 +220,30 @@ ComfyUI-J1mB091/
 ├── __init__.py                         # Node registration
 ├── resolution_nodes.py                 # Resolution utilities
 ├── video_nodes.py                     # Video processing
-└── js/
-    └── conditional_widget_visibility.js # UI enhancements
+├── utility_nodes.py                   # Workflow utilities (seed & save)
+├── js/
+│   └── conditional_widget_visibility.js # UI enhancements
+├── .vscode/
+│   └── settings.json                  # VS Code configuration
+├── requirements.txt                   # Dependencies
+├── README.md                          # This file
+└── LICENSE                           # GPL-3.0 License
 ```
 
 ### Node Categories
-1. Resolution Nodes:
+1. **Resolution Nodes** (`J1mB091/Resolution`):
    - `AspectRatioFromImage` - Calculate aspect ratio
-   - `ImageDimensions` - Get image dimensions 
+   - `ImageDimensions` - Get image dimensions
    - `NamedAspectRatioMatcher` - Match standard ratios
    - `ResolutionSelector` - Smart resolution presets
 
-2. Video Nodes:
+2. **Video Nodes** (`J1mB091/Video`):
    - `ExtractLastFrame` - Get final frame from batch
    - `ImageBatchCombiner` - Join image sequences
+
+3. **Utility Nodes** (`J1mB091/Utility`):
+   - `SeedGenerator` - Generate seed values
+   - `SaveImageWithSeed` - Save with seed naming
 
 ## 🤝 Contributing
 
@@ -185,7 +255,7 @@ ComfyUI-J1mB091/
 
 ## 📄 License
 
-MIT - see LICENSE file for details
+GPL-3.0 - see LICENSE file for details
 
 The GPL-3.0 license ensures that:
 - ✅ You can freely use, modify, and distribute this software

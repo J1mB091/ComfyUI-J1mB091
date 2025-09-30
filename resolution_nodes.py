@@ -474,7 +474,7 @@ class ResolutionSelector:
             },
             "optional": {
                 "image": ("IMAGE", {"tooltip": "Optional input image"}),
-            },
+            }
         }
 
     @classmethod

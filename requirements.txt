@@ -1,12 +1,14 @@
 # ComfyUI-J1mB091 Custom Nodes Requirements
 #
-# This node pack uses only standard ComfyUI dependencies and built-in Python modules.
-# No additional packages need to be installed.
+# This node pack uses standard ComfyUI dependencies and built-in Python modules.
+# No additional packages need to be installed beyond ComfyUI's requirements.
 #
-# Standard dependencies (included with ComfyUI):
-# - torch>=2.0.0
-typing-extensions>=4.5.0          # Tensor operations
-# - numpy          # Array operations
-# - Pillow         # Image processing
+# Core Dependencies (automatically included with ComfyUI):
+# - torch>=2.0.0          # Deep learning framework
+# - numpy                 # Numerical computing
+# - Pillow                # Image processing
+# - typing-extensions     # Type hints backport
+#
+# This file is kept for compatibility but no installation is required.
 # - typing         # Type hints (built-in Python module)
 # - math           # Mathematical functions (built-in Python module)
