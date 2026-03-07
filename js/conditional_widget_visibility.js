@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 
 // Constants
-const NODE_CLASS_RESOLUTION_SELECTOR = "ResolutionSelector";
+const NODE_CLASS_RESOLUTION_SELECTOR = "J1mB091ResolutionSelector";
 const MODE_MANUAL = "manual";
 const MODEL_WAN = "WAN";
 
@@ -79,7 +79,7 @@ app.registerExtension({
   name: "J1mB091.ConditionalWidgetVisibility",
   nodeCreated(node) {
     // Only handle nodes that need conditional widget visibility
-    const supportedNodes = ["ResolutionSelector"];
+    const supportedNodes = ["J1mB091ResolutionSelector"];
     if (!supportedNodes.includes(node.comfyClass)) return;
 
     // Initial apply

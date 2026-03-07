@@ -3,7 +3,7 @@ import { app } from "../../scripts/app.js";
 app.registerExtension({
     name: "J1mB091.ResolutionSelector",
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-        if (nodeData.name === "ResolutionSelector") {
+        if (nodeData.name === "J1mB091ResolutionSelector") {
             // Store resolution presets for each model
             const MODEL_PRESETS = {
                 "FLUX": [
@@ -11,10 +11,8 @@ app.registerExtension({
                     "640×1472  (9:21)",
                     "704×1472  (9:19)",
                     "768×1344  (9:16)",
-                    "896×1152  (7:9)",
                     "832×1280  (5:8)",
                     "832×1152  (5:7)",
-                    "896×1152  (4:5)",
                     "768×1280  (3:5)",
                     "896×1152  (3:4)",
                     "832×1280  (2:3)",
@@ -22,10 +20,8 @@ app.registerExtension({
                     "1280×832  (3:2)",
                     "1152×896  (4:3)",
                     "1280×768  (5:3)",
-                    "1152×896  (5:4)",
                     "1152×832  (7:5)",
                     "1280×832  (8:5)",
-                    "1152×896  (9:7)",
                     "1344×768  (16:9)",
                     "1472×704  (19:9)",
                     "1472×640  (21:9)",

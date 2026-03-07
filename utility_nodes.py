@@ -7,6 +7,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 import numpy as np
 import torch
+import comfy.sample
 
 # Import ComfyUI modules
 import folder_paths
@@ -24,12 +25,12 @@ class SeedGenerator:
             }
         }
 
-    RETURN_TYPES = ("INT",)
-    RETURN_NAMES = ("seed",)
+    RETURN_TYPES = ("INT", "NOISE")
+    RETURN_NAMES = ("seed", "noise")
     FUNCTION = "generate_seed"
     CATEGORY = "J1mB091/Utility"
 
-    def generate_seed(self, seed: int) -> Tuple[int]:
+    def generate_seed(self, seed: int) -> Tuple[int, "Noise_RandomNoise"]:
         """
         Pass through or generate a seed number.
         
@@ -37,9 +38,19 @@ class SeedGenerator:
             seed: Seed number for generation
             
         Returns:
-            Tuple[int]: The seed value for samplers and save nodes
+            Tuple[int, Noise_RandomNoise]: The seed value and a noise object for custom samplers
         """
-        return (seed,)
+        return (seed, Noise_RandomNoise(seed))
+
+
+class Noise_RandomNoise:
+    def __init__(self, seed: int):
+        self.seed = seed
+
+    def generate_noise(self, input_latent):
+        latent_image = input_latent["samples"]
+        batch_inds = input_latent["batch_index"] if "batch_index" in input_latent else None
+        return comfy.sample.prepare_noise(latent_image, self.seed, batch_inds)
 
 
 class SaveImageWithSeed:

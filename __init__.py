@@ -20,28 +20,28 @@ from .utility_nodes import SeedGenerator, SaveImageWithSeed
 WEB_DIRECTORY = "js"
 
 NODE_CLASS_MAPPINGS: Dict[str, Type[Any]] = {
-    "AspectRatioFromImage": AspectRatioFromImage,
-    "ImageDimensions": ImageDimensions,
-    "NamedAspectRatioMatcher": NamedAspectRatioMatcher,
-    "ResolutionSelector": ResolutionSelector,
-    "ExtractLastFrame": ExtractLastFrame,
-    "ImageBatchCombiner": ImageBatchCombiner,
-    "SeedGenerator": SeedGenerator,
-    "SaveImageWithSeed": SaveImageWithSeed,
+    "J1mB091AspectRatioFromImage": AspectRatioFromImage,
+    "J1mB091ImageDimensions": ImageDimensions,
+    "J1mB091NamedAspectRatioMatcher": NamedAspectRatioMatcher,
+    "J1mB091ResolutionSelector": ResolutionSelector,
+    "J1mB091ExtractLastFrame": ExtractLastFrame,
+    "J1mB091ImageBatchCombiner": ImageBatchCombiner,
+    "J1mB091SeedGenerator": SeedGenerator,
+    "J1mB091SaveImageWithSeed": SaveImageWithSeed,
     # Add new nodes here using the format:
     # "NodeClassName": NodeClass,
 }
 
 # Display names for nodes in the ComfyUI interface
 NODE_DISPLAY_NAME_MAPPINGS: Dict[str, str] = {
-    "AspectRatioFromImage": "J1mB091's Aspect Ratio From Image 📐",
-    "ImageDimensions": "J1mB091's Image Dimensions 📏",
-    "NamedAspectRatioMatcher": "J1mB091's Match Named Aspect Ratio 🎯",
-    "ResolutionSelector": "J1mB091's Resolution Selector 🖥️",
-    "ExtractLastFrame": "J1mB091's Extract Last Frame 📸",
-    "ImageBatchCombiner": "J1mB091's Image Batch Combiner 🔗",
-    "SeedGenerator": "J1mB091's Seed Generator 🌱",
-    "SaveImageWithSeed": "J1mB091's Save Image 💾",
+    "J1mB091AspectRatioFromImage": "J1mB091's Aspect Ratio From Image 📐",
+    "J1mB091ImageDimensions": "J1mB091's Image Dimensions 📏",
+    "J1mB091NamedAspectRatioMatcher": "J1mB091's Match Named Aspect Ratio 🎯",
+    "J1mB091ResolutionSelector": "J1mB091's Resolution Selector 🖥️",
+    "J1mB091ExtractLastFrame": "J1mB091's Extract Last Frame 📸",
+    "J1mB091ImageBatchCombiner": "J1mB091's Image Batch Combiner 🔗",
+    "J1mB091SeedGenerator": "J1mB091's Seed Generator 🌱",
+    "J1mB091SaveImageWithSeed": "J1mB091's Save Image 💾",
     # Add new node display names here using the format:
     # "NodeClassName": "J1mB091's Node Display Name 🎯",
 }

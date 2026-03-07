@@ -232,18 +232,18 @@ ComfyUI-J1mB091/
 
 ### Node Categories
 1. **Resolution Nodes** (`J1mB091/Resolution`):
-   - `AspectRatioFromImage` - Calculate aspect ratio
-   - `ImageDimensions` - Get image dimensions
-   - `NamedAspectRatioMatcher` - Match standard ratios
-   - `ResolutionSelector` - Smart resolution presets
+   - `J1mB091AspectRatioFromImage` - Calculate aspect ratio
+   - `J1mB091ImageDimensions` - Get image dimensions
+   - `J1mB091NamedAspectRatioMatcher` - Match standard ratios
+   - `J1mB091ResolutionSelector` - Smart resolution presets
 
 2. **Video Nodes** (`J1mB091/Video`):
-   - `ExtractLastFrame` - Get final frame from batch
-   - `ImageBatchCombiner` - Join image sequences
+   - `J1mB091ExtractLastFrame` - Get final frame from batch
+   - `J1mB091ImageBatchCombiner` - Join image sequences
 
 3. **Utility Nodes** (`J1mB091/Utility`):
-   - `SeedGenerator` - Generate seed values
-   - `SaveImageWithSeed` - Save with seed naming
+   - `J1mB091SeedGenerator` - Generate seed values
+   - `J1mB091SaveImageWithSeed` - Save with seed naming
 
 ## 🤝 Contributing
 
