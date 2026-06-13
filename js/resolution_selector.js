@@ -92,11 +92,18 @@ app.registerExtension({
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
+                const nodeInstance = this;
 
                 // Find the model widget and add our callback
                 const modelWidget = this.widgets.find(w => w.name === "model");
                 if (modelWidget) {
-                    modelWidget.callback = onModelChange;
+                    const originalCallback = modelWidget.callback;
+                    modelWidget.callback = function (value, oldValue, node) {
+                        if (typeof originalCallback === "function") {
+                            originalCallback.call(this, value, oldValue, node);
+                        }
+                        onModelChange(value, oldValue, node || nodeInstance);
+                    };
                     // Initial update of aspect ratio options
                     onModelChange(modelWidget.value, null, this);
                 }

@@ -1,13 +1,11 @@
 """Resolution utility nodes for ComfyUI."""
 
 import math
-from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, cast, TYPE_CHECKING
+from typing import Any, Dict, Optional, Tuple, Union, TypeVar, cast
 import logging
-from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
-import numpy.typing as npt
 import torch
 from torch import Tensor
 from PIL import Image
@@ -16,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 # Type variables for tensor operations
 T = TypeVar('T', Tensor, NDArray[np.float32])
-ImageType = Union[Tensor, NDArray[np.float32], Image.Image]
 
 # Predefined known ratios with human-friendly labels
 KNOWN_RATIOS: Dict[str, str] = {
@@ -201,7 +198,7 @@ class ImageProcessingBase:
             return None
 
         except Exception as e:
-            print(f"Error converting PIL Image to tensor: {e}")
+            logger.error(f"Error converting PIL Image to tensor: {e}")
             return None
 
 
@@ -238,7 +235,7 @@ class AspectRatioFromImage(ImageProcessingBase):
             h = int(height) // gcd
             return (f"{w}:{h}",)
         except Exception as e:
-            print(f"Error extracting aspect ratio: {e}")
+            logger.error(f"Error extracting aspect ratio: {e}")
             return ("1:1",)  # Safe default
 
 
@@ -272,7 +269,7 @@ class ImageDimensions(ImageProcessingBase):
             height, width = self.extract_image_dimensions(image)
             return int(width), int(height)
         except Exception as e:
-            print(f"Error extracting dimensions: {e}")
+            logger.error(f"Error extracting dimensions: {e}")
             return (512, 512)  # Safe default
 
 
@@ -487,11 +484,6 @@ class ResolutionSelector:
 
         return True
 
-        return {
-            "manual_width": ("INT", {"default": 832, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual width (multiples of {cls.DIMENSION_ALIGNMENT})"}),
-            "manual_height": ("INT", {"default": 480, "min": cls.MIN_DIMENSION, "max": cls.MAX_DIMENSION, "step": cls.DIMENSION_ALIGNMENT, "tooltip": f"Manual height (multiples of {cls.DIMENSION_ALIGNMENT})"}),
-        }
-
     RETURN_TYPES = ("INT", "INT")
     RETURN_NAMES = ("width", "height")
     FUNCTION = "select_resolution"
@@ -568,8 +560,7 @@ class ResolutionSelector:
         """
         try:
             # Extract dimensions using base class helper
-            processor = ImageProcessingBase()
-            image_height, image_width = processor.extract_image_dimensions(image)
+            image_height, image_width = ImageProcessingBase.extract_image_dimensions(image)
 
             # Choose target ratio and orientation
             ratio_key, forced_orientation = self._resolve_ratio_key(
@@ -601,19 +592,6 @@ class ResolutionSelector:
                 "720p": (768, 768)
             }
             return defaults.get(quality, (512, 512))
-
-        # Our presets are defined for landscape keys; map portrait keys to their landscape equivalents
-        base_ratio_key = {"3:4": "4:3", "9:16": "16:9"}.get(ratio_key, ratio_key)
-        base_width, base_height = self._select_base_resolution(quality, base_ratio_key)
-
-        # Decide final orientation: obey forced orientation if provided; otherwise infer from image
-        orientation = forced_orientation or ("landscape" if image_width >= image_height else "portrait")
-
-        # For portrait (non-square), swap dimensions to keep the requested ratio orientation
-        if orientation == "portrait" and ratio_key != "1:1":
-            base_width, base_height = base_height, base_width
-
-        return (base_width, base_height)
 
     def _handle_wan_without_image(self, quality: str, aspect_ratio_override: str) -> Tuple[int, int]:
         """Handle WAN mode when no image is provided"""

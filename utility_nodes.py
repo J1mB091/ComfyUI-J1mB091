@@ -6,7 +6,6 @@ import json
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 import numpy as np
-import torch
 import comfy.sample
 
 # Import ComfyUI modules
@@ -96,6 +95,7 @@ class SaveImageWithSeed:
             Empty tuple for ComfyUI compatibility
         """
         return self._save_images_impl(images, filename_prefix, seed, prompt, extra_pnginfo)
+
     def _save_images_impl(self, images, filename_prefix: str, seed: Optional[int] = None, prompt=None, extra_pnginfo=None):
         """
         Save images with optional seed in filename using ComfyUI's proper save logic.
@@ -110,6 +110,19 @@ class SaveImageWithSeed:
         Returns:
             Dict with saved image info for ComfyUI preview
         """
+        # Guard against empty image batches to avoid index errors on images[0].
+        if images is None:
+            return {"ui": {"images": []}}
+        try:
+            batch_size = int(images.shape[0])
+        except Exception:
+            try:
+                batch_size = len(images)
+            except Exception:
+                batch_size = 0
+        if batch_size <= 0:
+            return {"ui": {"images": []}}
+
         # Get the base path info from ComfyUI's function
         full_output_folder, filename, base_counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir, images[0].shape[1], images[0].shape[0])
 

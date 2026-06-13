@@ -58,6 +58,8 @@ Universal resolution selector supporting both WAN and FLUX models with smart asp
 **Models:**
 - **WAN**: Uses quality presets with aspect ratio override (legacy support)
 - **FLUX**: Uses specific resolution presets for optimal FLUX performance
+- **FLUX Kontext**: Uses dedicated Kontext resolution presets
+- **SDXL**: Uses SDXL-optimized preset resolutions
 
 **Modes:**
 - **Auto**: Automatically selects resolution based on model type, input image, or aspect ratio settings
@@ -69,9 +71,9 @@ Universal resolution selector supporting both WAN and FLUX models with smart asp
 - Automatic portrait/landscape detection
 - WAN-optimized resolutions (16-pixel aligned)
 
-**FLUX Features:**
-- Specific resolution presets optimized for FLUX
-- 17 predefined aspect ratios from 9:21 to 21:9
+**Preset Model Features (FLUX/FLUX Kontext/SDXL):**
+- Model-specific resolution presets
+- Dynamic preset list that updates by selected model
 - Direct resolution selection for optimal performance
 
 ### Video Sequence Manipulation 🎬
@@ -206,10 +208,8 @@ Latent Image → KSampler → J1mB091's Save Image
 
 ## 🔧 Technical Details
 
-## 🔧 Technical Details
-
 ### Dependencies
-- Python 3.8+
+- Python 3.10+
 - PyTorch 2.0.0+
 - typing-extensions 4.5.0+
 - ComfyUI latest version
@@ -222,7 +222,8 @@ ComfyUI-J1mB091/
 ├── video_nodes.py                     # Video processing
 ├── utility_nodes.py                   # Workflow utilities (seed & save)
 ├── js/
-│   └── conditional_widget_visibility.js # UI enhancements
+│   ├── conditional_widget_visibility.js # Dynamic widget enable/disable
+│   └── resolution_selector.js         # Model-based resolution preset updates
 ├── .vscode/
 │   └── settings.json                  # VS Code configuration
 ├── requirements.txt                   # Dependencies
